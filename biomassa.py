@@ -7,9 +7,9 @@ import folium
 import plotly.express as px
 
 # 1. Configuração da Interface
-st.set_page_config(layout="wide", page_title="BioTrack Roraima", page_icon="🛰️")
+st.set_page_config(layout="wide", page_title="Gestão de Mangium Roraima", page_icon="🛰️")
 
-st.title("🛰️ BioTrack - Gestão de Consumo e Estoque")
+st.title("🛰️ Gestão de Consumo e Estoque")
 st.markdown("---")
 
 # 2. Carregamento dos Dados
