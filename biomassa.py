@@ -56,7 +56,7 @@ try:
     progresso = (consumido / total_original) * 100
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Estoque Inicial de Mangium - Ano de Base de Referência 2020", f"{total_original:,.0f}".replace(",", "."))
+    c1.metric("Estoque Inicial de Mangium - Referência 2020", f"{total_original:,.0f}".replace(",", "."))
     c2.metric("Saldo em Estoque de Mangium", f"{saldo_atual:,.0f}".replace(",", "."), delta=f"-{consumido:,.0f}", delta_color="inverse")
     c3.metric("Percentual de Consumo de Mangium", f"{progresso:.1f}%")
 
