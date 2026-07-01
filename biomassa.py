@@ -1,20 +1,3 @@
-Entendi perfeitamente! Como você está testando e editando tudo direto pela interface web do GitHub, o caminho mais rápido e limpo para resolver isso é reescrever o arquivo com a versão que estava funcionando bem (antes de travar o mapa) e que já inclui as correções de unidades e do gráfico que você aprovou.
-
-Para consertar isso diretamente no GitHub sem precisar de comandos de terminal, siga este passo a passo usando apenas o seu navegador:
-🛠️ Como aplicar a correção direto no GitHub:
-
-    Acesse o seu repositório no GitHub pelo navegador.
-
-    Clique no seu arquivo de script do Streamlit (ex: app.py ou main.py).
-
-    No canto superior direito da visualização do código, clique no ícone de Lápis (✏️) que diz "Edit this file".
-
-    Apague absolutamente todo o código que está lá dentro (selecione tudo com Ctrl + A e delete).
-
-    Cole o código completo e corrigido abaixo, que já vem com o mapa adaptado para a versão web estável e sem o erro do gráfico:
-
-Python
-
 import streamlit as st
 import leafmap.foliumap as leafmap
 import geopandas as gpd
@@ -47,8 +30,7 @@ try:
     # 3. Painel Lateral
     with st.sidebar:
         st.header("🔍 Painel de Controle")
-        anos_disponiveis = ["2022", "2023", "2024", "2025"]
-        ano = st.selectbox("Selecione o Ano de Referência", anos_disponiveis)
+        ano = st.selectbox("Selecione o Ano de Referência", ["2022", "2023", "2024", "2025"])
         col_exp = f"exploracao_{ano}" 
         col_saldo = f"saldo_{ano}"
         
@@ -74,20 +56,9 @@ try:
     progresso = (consumido / total_original) * 100
 
     c1, c2, c3 = st.columns(3)
-    c1.metric(
-        "Estoque Inicial de Mangium - Referência 2020", 
-        f"{total_original:,.0f} unid.".replace(",", ".")
-    )
-    c2.metric(
-        "Saldo em Estoque de Mangium", 
-        f"{saldo_atual:,.0f} unid.".replace(",", "."), 
-        delta=f"-{consumido:,.0f} unid.", 
-        delta_color="inverse"
-    )
-    c3.metric(
-        "Percentual de Consumo de Mangium", 
-        f"{progresso:.1f}% consumido"
-    )
+    c1.metric("Estoque Inicial de Mangium - Referência 2020", f"{total_original:,.0f}".replace(",", "."))
+    c2.metric("Saldo em Estoque de Mangium", f"{saldo_atual:,.0f}".replace(",", "."), delta=f"-{consumido:,.0f}", delta_color="inverse")
+    c3.metric("Percentual de Consumo de Mangium", f"{progresso:.1f}%")
 
     # 5. Informações do Talhão Selecionado
     if talhao_selecionado != "Visão Geral":
@@ -97,34 +68,14 @@ try:
         
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("ID", talhao_selecionado)
-        col2.metric("Original", f"{t_data['mudas_2020']:,.0f} unid.".replace(",", "."))
-        col3.metric(f"Saldo {ano}", f"{t_data[col_saldo]:,.0f} unid.".replace(",", "."))
+        col2.metric("Original", f"{t_data['mudas_2020']:,.0f}".replace(",", "."))
+        col3.metric(f"Saldo {ano}", f"{t_data[col_saldo]:,.0f}".replace(",", "."))
         col4.metric(f"% Consumo", f"{t_data[col_exp]:.1f}%")
         st.progress(t_data[col_exp] / 100)
 
-    # 6. Visualização Espacial (Otimizada para carregar direto na Web)
+    # 6. Visualização Espacial
     st.markdown("---")
-    
-    if not data.empty:
-        centro_real_y = data.geometry.centroid.y.mean()
-        centro_real_x = data.geometry.centroid.x.mean()
-        coordenadas_iniciais = [centro_real_y, centro_real_x]
-    else:
-        coordenadas_iniciais = st.session_state.map_state['center']
-
-    m = leafmap.Map(
-        center=st.session_state.map_state['center'] if talhao_selecionado != "Visão Geral" else coordenadas_iniciais, 
-        zoom=st.session_state.map_state['zoom'],
-        draw_control=False,
-        measure_control=False
-    )
-    
-    # Adicionando satélite por link direto (evita que o iframe web bloqueie o carregamento)
-    m.add_tile_layer(
-        url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-        name="Google Satellite",
-        attribution="Google"
-    )
+    m = leafmap.Map(center=st.session_state.map_state['center'], zoom=st.session_state.map_state['zoom'], google_map="SATELLITE")
     
     m.add_data(
         data, column=col_exp, scheme="UserDefined", 
@@ -138,22 +89,18 @@ try:
         geom_talhao = sel_data.geometry
         centroid = geom_talhao.centroid
         
+        # Destaque da borda do talhão
         m.add_gdf(gpd.GeoDataFrame(geometry=[geom_talhao], crs="EPSG:4326"), 
                   style={"color": "yellow", "weight": 5, "fillOpacity": 0.1}, layer_name="Foco")
         
+        # O MARCADOR QUE TINHA SUMIDO:
         folium.Marker(
             [centroid.y, centroid.x],
             popup=f"Talhão {talhao_selecionado}: {sel_data[col_exp]:.1f}% consumido",
             icon=folium.Icon(color="red", icon="info-sign")
         ).add_to(m)
 
-    st_folium(
-        m, 
-        key="mapa_estavel_github", 
-        use_container_width=True, 
-        height=500,
-        returned_objects=[]
-    )
+    st_folium(m, key=f"map_{ano}_{talhao_selecionado}", width=1200, height=500)
 
     # 7. Relatório Detalhado
     st.markdown("---")
@@ -161,16 +108,21 @@ try:
     
     df_tabela = data[['fid', 'mudas_2020', col_saldo, col_exp]].copy()
     
+    # Ordenação mantendo o selecionado no topo
     if talhao_selecionado != "Visão Geral":
         df_tabela['sel_hidden'] = (df_tabela['fid'].astype(str) == str(talhao_selecionado)).astype(int)
         df_tabela = df_tabela.sort_values(['sel_hidden', col_exp], ascending=[False, False])
     else:
         df_tabela = df_tabela.sort_values(col_exp, ascending=False)
 
+    # Função de estilização corrigida
     def style_row(row):
+        styles = [''] * len(row)
+        # Se for o selecionado (usando a coluna oculta de controle)
         if talhao_selecionado != "Visão Geral" and str(row['fid']) == str(talhao_selecionado):
             return ['background-color: #FAFF00; color: black; font-weight: bold; border: 2px solid black'] * len(row)
         
+        # Cores de criticidade
         if row[col_exp] >= 70:
             return ['background-color: #FFCDD2; color: black'] * len(row)
         elif row[col_exp] >= 30:
@@ -178,6 +130,7 @@ try:
         else:
             return ['background-color: #C8E6C9; color: black'] * len(row)
 
+    # Exibição com as colunas certas (removendo a 'sel_hidden' da visão do usuário)
     st.dataframe(
         df_tabela.drop(columns=['sel_hidden'] if 'sel_hidden' in df_tabela.columns else []).style.apply(style_row, axis=1).format({
             'mudas_2020': '{:,.0f}', 
@@ -186,8 +139,8 @@ try:
         }),
         column_config={
             "fid": "ID Talhão", 
-            "mudas_2020": "Inicial (unid.)", 
-            col_saldo: "Saldo Atual (unid.)", 
+            "mudas_2020": "Inicial", 
+            col_saldo: "Saldo Atual", 
             col_exp: "% Consumo"
         },
         use_container_width=True, 
@@ -195,93 +148,103 @@ try:
         height=350
     )
 
-    # 8. Estatísticas Gerais e Gráficos de Linha Temporal
+    # 8. Estatísticas Gerais e Gráficos
     st.markdown("---")
-    with st.expander("📊 Estatísticas e Evolução Temporal do Consumo", expanded=True):
-        
+    with st.expander("📊 Estatísticas e Ranking de Consumo", expanded=True):
+        # 8.1 Métricas (Mantendo como você já tem)
         m1, m2, m3 = st.columns(3)
         with m1:
             c_alt = len(df_tabela[df_tabela[col_exp] >= 70])
-            st.metric("Alto Consumo (>=70%)", c_alt, f"{(c_alt/len(df_tabela)*100):.1f}%")
+            st.metric("Alto Consumo", c_alt, f"{(c_alt/len(df_tabela)*100):.1f}%")
         with m2:
             c_med = len(df_tabela[(df_tabela[col_exp] >= 30) & (df_tabela[col_exp] < 70)])
-            st.metric("Consumo Médio (30%-69%)", c_med, f"{(c_med/len(df_tabela)*100):.1f}%")
+            st.metric("Consumo Médio", c_med, f"{(c_med/len(df_tabela)*100):.1f}%")
         with m3:
             c_baix = len(df_tabela[df_tabela[col_exp] < 30])
-            st.metric("Baixo Consumo (<30%)", c_baix, f"{(c_baix/len(df_tabela)*100):.1f}%")
+            st.metric("Baixo Consumo", c_baix, f"{(c_baix/len(df_tabela)*100):.1f}%")
 
         st.markdown("---")
         
-        historico_anos = []
+        # 8.2 Preparação do Gráfico Dinâmico (Ranking)
+        # Criamos um DF focado apenas no ranking para não confundir o Plotly
+        df_ranking = data[['fid', col_exp]].copy()
+        df_ranking = df_ranking.sort_values(by=col_exp, ascending=False).reset_index(drop=True)
+        df_ranking['fid_str'] = df_ranking['fid'].astype(str)
         
         if talhao_selecionado != "Visão Geral":
-            st.subheader(f"📈 Comparação de Consumo ao Longo dos Anos - Talhão {talhao_selecionado}")
-            t_row = data[data['fid'] == talhao_selecionado].iloc[0]
+            # Encontra a POSIÇÃO (0, 1, 2...) do talhão no ranking ordenado
+            idx_list = df_ranking.index[df_ranking['fid_str'] == str(talhao_selecionado)].tolist()
             
-            for a in anos_disponiveis:
-                historico_anos.append({
-                    "Ano": str(a),
-                    "% Consumo": t_row[f"exploracao_{a}"],
-                    "Saldo (unid.)": t_row[f"saldo_{a}"]
-                })
-            df_linha = pd.DataFrame(historico_anos)
-            
-            fig_linha = px.line(
-                df_linha, x="Ano", y="% Consumo", markers=True,
-                text=[f"{val:.1f}%" for val in df_linha["% Consumo"]],
-                title=f"Histórico de Consumo Acumulado - Talhão {talhao_selecionado}"
-            )
-            cor_base = '#FF0000'
-            
-        else:
-            st.subheader("📈 Comparação de Consumo ao Longo dos Anos - Todos os Talhões")
-            
-            for a in anos_disponiveis:
-                media_consumo = data[f"exploracao_{a}"].mean()
-                historico_anos.append({
-                    "Ano": str(a),
-                    "Média % Consumo": media_consumo
-                })
-            df_linha = pd.DataFrame(historico_anos)
-            
-            fig_linha = px.line(
-                df_linha, x="Ano", y="Média % Consumo", markers=True,
-                text=[f"{val:.1f}%" for val in df_linha["Média % Consumo"]],
-                title="Média Geral de Consumo Acumulado do Projeto"
-            )
-            cor_base = '#0083B8'
-
-        lista_cores = []
-        lista_tamanhos = []
-        for a in anos_disponiveis:
-            if str(a) == str(ano):
-                lista_cores.append('#FAFF00')
-                lista_tamanhos.append(14)
+            if idx_list:
+                posicao_real = idx_list[0]
+                
+                # Define as cores: Amarelo para o selecionado, Cinza para o resto
+                df_ranking['Destaque'] = df_ranking['fid_str'].apply(
+                    lambda x: 'Selecionado' if x == str(talhao_selecionado) else 'Outros'
+                )
+                
+                # JANELA DE DESLOCAMENTO: Pega 5 talhões antes e 5 depois no ranking
+                start = max(0, posicao_real - 5)
+                end = min(len(df_ranking), posicao_real + 6)
+                df_zoom = df_ranking.iloc[start:end].copy()
+                
+                st.subheader(f"📈 Posição no Ranking: {posicao_real + 1}º lugar")
             else:
-                lista_cores.append(cor_base)
-                lista_tamanhos.append(8)
+                df_zoom = df_ranking.head(15)
+                st.subheader("📈 Ranking Geral de Consumo")
+        else:
+            df_ranking['Destaque'] = 'Geral'
+            df_zoom = df_ranking.head(15)
+            st.subheader("📈 Top 15 Maiores Consumos")
 
-        fig_linha.update_traces(
-            line=dict(color=cor_base, width=4),
-            marker=dict(
-                color=lista_cores, 
-                size=lista_tamanhos,
-                line=dict(color='black', width=1)
-            ),
-            textposition="top center"
+        # 8.3 Criação do Gráfico de Barras
+        fig_barra = px.bar(
+            df_zoom, 
+            x='fid_str', 
+            y=col_exp,
+            color='Destaque',
+            color_discrete_map={'Selecionado': '#FAFF00', 'Outros': '#A0A0A0', 'Geral': '#0083B8'},
+            text_auto='.1f',
+            # Isso impede que o Plotly reordene os IDs (mantém o ranking do maior para o menor)
+            category_orders={"fid_str": df_zoom['fid_str'].tolist()} 
         )
 
-        fig_linha.update_layout(
+        fig_barra.update_layout(
+            showlegend=False, 
             height=400,
-            xaxis_title="Ano de Referência",
+            xaxis_title="ID do Talhão (Ranking Decrescente)",
             yaxis_title="% Consumo",
             plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(range=[0, 105]),
-            xaxis=dict(type='category')
+            paper_bgcolor='rgba(0,0,0,0)'
         )
-        
-        st.plotly_chart(fig_linha, use_container_width=True)
+
+        # 8.4 Seta Indicadora (Apenas se houver seleção)
+        if talhao_selecionado != "Visão Geral":
+            val_y = df_zoom[df_zoom['fid_str'] == str(talhao_selecionado)][col_exp].values[0]
+            fig_barra.add_annotation(
+                x=str(talhao_selecionado), 
+                y=val_y,
+                text="📍 SELECIONADO", 
+                showarrow=True, 
+                arrowhead=2, 
+                ay=-50,
+                bgcolor="#FAFF00", 
+                font=dict(color="black", size=12, weight="bold")
+            )
+
+        st.plotly_chart(fig_barra, use_container_width=True)
+
+        # 8.5 Gráfico de Linha (Histórico)
+        if talhao_selecionado != "Visão Geral":
+            st.markdown("---")
+            st.subheader(f"📅 Histórico de Consumo - Talhão {talhao_selecionado}")
+            t_row = data[data['fid'] == talhao_selecionado].iloc[0]
+            df_hist = pd.DataFrame([
+                {"Ano": a, "Consumo": t_row[f"exploracao_{a}"]} for a in ["2022", "2023", "2024", "2025"]
+            ])
+            fig_line = px.line(df_hist, x="Ano", y="Consumo", markers=True)
+            fig_line.update_traces(line_color='#FAFF00', line_width=4, marker=dict(size=10, color="black"))
+            st.plotly_chart(fig_line, use_container_width=True)
 
 except Exception as e:
     st.error(f"⚠️ Erro crítico: {e}")
