@@ -50,7 +50,7 @@ try:
                 st.session_state.map_state = {'center': [geom.y, geom.x], 'zoom': 16}
                 st.rerun()
 
-    # 4. KPIs Principais (Atualizado com unidades de indivíduos)
+    # 4. KPIs Principais (Atualizado para 'unid.')
     total_original = data['mudas_2020'].sum()
     saldo_atual = data[col_saldo].sum()
     consumido = total_original - saldo_atual
@@ -59,20 +59,20 @@ try:
     c1, c2, c3 = st.columns(3)
     c1.metric(
         "Estoque Inicial de Mangium - Referência 2020", 
-        f"{total_original:,.0f} indivíduos".replace(",", ".")
+        f"{total_original:,.0f} unid.".replace(",", ".")
     )
     c2.metric(
         "Saldo em Estoque de Mangium", 
-        f"{saldo_atual:,.0f} indivíduos".replace(",", "."), 
-        delta=f"-{consumido:,.0f} ind.", 
+        f"{saldo_atual:,.0f} unid.".replace(",", "."), 
+        delta=f"-{consumido:,.0f} unid.", 
         delta_color="inverse"
     )
     c3.metric(
         "Percentual de Consumo de Mangium", 
-        f"{progresso:.1f}% indivíduos consumidos"
+        f"{progresso:.1f}% consumido"
     )
 
-    # 5. Informações do Talhão Selecionado (Atualizado com unidades de indivíduos)
+    # 5. Informações do Talhão Selecionado (Atualizado para 'unid.')
     if talhao_selecionado != "Visão Geral":
         st.markdown("---")
         st.subheader(f"📊 Detalhes - Talhão {talhao_selecionado}")
@@ -80,8 +80,8 @@ try:
         
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("ID", talhao_selecionado)
-        col2.metric("Original", f"{t_data['mudas_2020']:,.0f} ind.".replace(",", "."))
-        col3.metric(f"Saldo {ano}", f"{t_data[col_saldo]:,.0f} ind.".replace(",", "."))
+        col2.metric("Original", f"{t_data['mudas_2020']:,.0f} unid.".replace(",", "."))
+        col3.metric(f"Saldo {ano}", f"{t_data[col_saldo]:,.0f} unid.".replace(",", "."))
         col4.metric(f"% Consumo", f"{t_data[col_exp]:.1f}%")
         st.progress(t_data[col_exp] / 100)
 
@@ -143,8 +143,8 @@ try:
         }),
         column_config={
             "fid": "ID Talhão", 
-            "mudas_2020": "Inicial (ind.)", 
-            col_saldo: "Saldo Atual (ind.)", 
+            "mudas_2020": "Inicial (unid.)", 
+            col_saldo: "Saldo Atual (unid.)", 
             col_exp: "% Consumo"
         },
         use_container_width=True, 
@@ -179,9 +179,9 @@ try:
             
             for a in anos_disponiveis:
                 historico_anos.append({
-                    "Ano": a,
+                    "Ano": str(a),  # Força o ano como string para evitar decimais/milhar no Plotly
                     "% Consumo": t_row[f"exploracao_{a}"],
-                    "Saldo (ind.)": t_row[f"saldo_{a}"]
+                    "Saldo (unid.)": t_row[f"saldo_{a}"]
                 })
             df_linha = pd.DataFrame(historico_anos)
             
@@ -198,7 +198,7 @@ try:
             for a in anos_disponiveis:
                 media_consumo = data[f"exploracao_{a}"].mean()
                 historico_anos.append({
-                    "Ano": a,
+                    "Ano": str(a),  # Força o ano como string para evitar decimais/milhar no Plotly
                     "Média % Consumo": media_consumo
                 })
             df_linha = pd.DataFrame(historico_anos)
@@ -217,7 +217,8 @@ try:
             yaxis_title="% Consumo",
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(range=[0, 105])
+            yaxis=dict(range=[0, 105]),
+            xaxis=dict(type='category')  # Garante que o eixo X trate os anos puramente como categorias textuais
         )
         fig_linha.update_traces(textposition="top center")
         
