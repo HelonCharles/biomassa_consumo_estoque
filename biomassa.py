@@ -50,7 +50,7 @@ try:
                 st.session_state.map_state = {'center': [geom.y, geom.x], 'zoom': 16}
                 st.rerun()
 
-    # 4. KPIs Principais (Atualizado para 'unid.')
+    # 4. KPIs Principais
     total_original = data['mudas_2020'].sum()
     saldo_atual = data[col_saldo].sum()
     consumido = total_original - saldo_atual
@@ -72,7 +72,7 @@ try:
         f"{progresso:.1f}% consumido"
     )
 
-    # 5. Informações do Talhão Selecionado (Atualizado para 'unid.')
+    # 5. Informações do Talhão Selecionado
     if talhao_selecionado != "Visão Geral":
         st.markdown("---")
         st.subheader(f"📊 Detalhes - Talhão {talhao_selecionado}")
@@ -190,7 +190,6 @@ try:
                 text=[f"{val:.1f}%" for val in df_linha["% Consumo"]],
                 title=f"Histórico de Consumo Acumulado - Talhão {talhao_selecionado}"
             )
-            # Cor base da linha para talhão específico
             cor_base = '#FF0000'
             
         else:
@@ -209,20 +208,27 @@ try:
                 text=[f"{val:.1f}%" for val in df_linha["Média % Consumo"]],
                 title="Média Geral de Consumo Acumulado do Projeto"
             )
-            # Cor base da linha para Visão Geral
             cor_base = '#0083B8'
 
-        # Descobrir o índice numérico do ano selecionado para aplicar o destaque do marcador
-        indice_ano_selecionado = anos_disponiveis.index(str(ano))
+        # Criação dinâmica das propriedades dos marcadores (Destaque baseado no ano ativo)
+        lista_cores = []
+        lista_tamanhos = []
+        for a in anos_disponiveis:
+            if str(a) == str(ano):
+                lista_cores.append('#FAFF00')  # Cor de destaque (Amarelo) para o ano selecionado
+                lista_tamanhos.append(14)      # Tamanho maior para dar ênfase
+            else:
+                lista_cores.append(cor_base)   # Cor padrão (Vermelho ou Azul)
+                lista_tamanhos.append(8)       # Tamanho padrão menor
 
-        # Estilização do Gráfico e Destaque Dinâmico do Marcador
+        # Atualizando os marcadores de forma limpa e compatível com px.line
         fig_linha.update_traces(
             line=dict(color=cor_base, width=4),
-            selectedpoints=[indice_ano_selecionado], # Define qual ponto receberá a estilização de destaque
-            # Como o marcador se comporta quando está selecionado (Ano Atual)
-            selected=dict(marker=dict(color='#FAFF00', size=14, line=dict(color='black', width=2))),
-            # Como os marcadores se comportam quando não estão selecionados (Outros Anos)
-            unselected=dict(marker=dict(color=cor_base, size=8, opacity=0.9)),
+            marker=dict(
+                color=lista_cores, 
+                size=lista_tamanhos,
+                line=dict(color='black', width=1) # Cria uma borda preta sutil em volta dos marcadores
+            ),
             textposition="top center"
         )
 
