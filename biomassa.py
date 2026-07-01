@@ -7,7 +7,7 @@ import folium
 import plotly.express as px
 
 # 1. Configuração da Interface
-st.set_page_config(layout="wide", page_title="Gestão de Mangium Roraima", page_icon="🛰️")
+st.set_page_config(layout="wide", page_title="Gestor de Estoque de Acácia mangium", page_icon="🛰️")
 
 st.title("🛰️ Gestão de Consumo e Estoque")
 st.markdown("---")
@@ -56,8 +56,8 @@ try:
     progresso = (consumido / total_original) * 100
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Estoque Inicial de Mangium - Referência 2020", f"{total_original:,.0f}".replace(",", "."))
-    c2.metric("Saldo em Estoque de Mangium", f"{saldo_atual:,.0f}".replace(",", "."), delta=f"-{consumido:,.0f}", delta_color="inverse")
+    c1.metric("Estoque Inicial de Mangium - Referência 2020", f"{total_original:,.0f}".replace(",", ".") + " unid.")
+    c2.metric("Saldo em Estoque de Mangium", f"{saldo_atual:,.0f}".replace(",", ".") + " unid.", delta=f"-{consumido:,.0f} unid.", delta_color="inverse")
     c3.metric("Percentual de Consumo de Mangium", f"{progresso:.1f}%")
 
     # 5. Informações do Talhão Selecionado
@@ -68,8 +68,8 @@ try:
         
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("ID", talhao_selecionado)
-        col2.metric("Original", f"{t_data['mudas_2020']:,.0f}".replace(",", "."))
-        col3.metric(f"Saldo {ano}", f"{t_data[col_saldo]:,.0f}".replace(",", "."))
+        col2.metric("Original", f"{t_data['mudas_2020']:,.0f}".replace(",", ".") + " unid.")
+        col3.metric(f"Saldo {ano}", f"{t_data[col_saldo]:,.0f}".replace(",", ".") + " unid.")
         col4.metric(f"% Consumo", f"{t_data[col_exp]:.1f}%")
         st.progress(t_data[col_exp] / 100)
 
@@ -84,19 +84,20 @@ try:
         layer_name="Status Consumo", fields=["fid", col_exp], info_mode="on_hover"
     )
 
+    # DESTAQUE DINÂMICO NAS COORDENADAS POR ANO SELECIONADO
     if talhao_selecionado != "Visão Geral":
         sel_data = data[data['fid'] == talhao_selecionado].iloc[0]
         geom_talhao = sel_data.geometry
         centroid = geom_talhao.centroid
         
-        # Destaque da borda do talhão
         m.add_gdf(gpd.GeoDataFrame(geometry=[geom_talhao], crs="EPSG:4326"), 
                   style={"color": "yellow", "weight": 5, "fillOpacity": 0.1}, layer_name="Foco")
         
-        # O MARCADOR QUE TINHA SUMIDO:
+        # Marcador ajustado com as coordenadas exatas e dados sintonizados ao ano escolhido
         folium.Marker(
             [centroid.y, centroid.x],
-            popup=f"Talhão {talhao_selecionado}: {sel_data[col_exp]:.1f}% consumido",
+            popup=f"<b>Talhão {talhao_selecionado}</b><br>Consumo em {ano}: {sel_data[col_exp]:.1f}%<br>Saldo Atual: {sel_data[col_saldo]:,.0f} unid.",
+            tooltip=f"Inspeção Talhão {talhao_selecionado} ({ano})",
             icon=folium.Icon(color="red", icon="info-sign")
         ).add_to(m)
 
@@ -108,21 +109,16 @@ try:
     
     df_tabela = data[['fid', 'mudas_2020', col_saldo, col_exp]].copy()
     
-    # Ordenação mantendo o selecionado no topo
     if talhao_selecionado != "Visão Geral":
         df_tabela['sel_hidden'] = (df_tabela['fid'].astype(str) == str(talhao_selecionado)).astype(int)
         df_tabela = df_tabela.sort_values(['sel_hidden', col_exp], ascending=[False, False])
     else:
         df_tabela = df_tabela.sort_values(col_exp, ascending=False)
 
-    # Função de estilização corrigida
     def style_row(row):
-        styles = [''] * len(row)
-        # Se for o selecionado (usando a coluna oculta de controle)
         if talhao_selecionado != "Visão Geral" and str(row['fid']) == str(talhao_selecionado):
             return ['background-color: #FAFF00; color: black; font-weight: bold; border: 2px solid black'] * len(row)
         
-        # Cores de criticidade
         if row[col_exp] >= 70:
             return ['background-color: #FFCDD2; color: black'] * len(row)
         elif row[col_exp] >= 30:
@@ -130,7 +126,6 @@ try:
         else:
             return ['background-color: #C8E6C9; color: black'] * len(row)
 
-    # Exibição com as colunas certas (removendo a 'sel_hidden' da visão do usuário)
     st.dataframe(
         df_tabela.drop(columns=['sel_hidden'] if 'sel_hidden' in df_tabela.columns else []).style.apply(style_row, axis=1).format({
             'mudas_2020': '{:,.0f}', 
@@ -139,8 +134,8 @@ try:
         }),
         column_config={
             "fid": "ID Talhão", 
-            "mudas_2020": "Inicial", 
-            col_saldo: "Saldo Atual", 
+            "mudas_2020": "Inicial (unid.)", 
+            col_saldo: f"Saldo {ano} (unid.)", 
             col_exp: "% Consumo"
         },
         use_container_width=True, 
@@ -150,8 +145,7 @@ try:
 
     # 8. Estatísticas Gerais e Gráficos
     st.markdown("---")
-    with st.expander("📊 Estatísticas e Ranking de Consumo", expanded=True):
-        # 8.1 Métricas (Mantendo como você já tem)
+    with st.expander("📊 Estatísticas e Histórico de Monitoramento", expanded=True):
         m1, m2, m3 = st.columns(3)
         with m1:
             c_alt = len(df_tabela[df_tabela[col_exp] >= 70])
@@ -165,86 +159,90 @@ try:
 
         st.markdown("---")
         
-        # 8.2 Preparação do Gráfico Dinâmico (Ranking)
-        # Criamos um DF focado apenas no ranking para não confundir o Plotly
-        df_ranking = data[['fid', col_exp]].copy()
-        df_ranking = df_ranking.sort_values(by=col_exp, ascending=False).reset_index(drop=True)
-        df_ranking['fid_str'] = df_ranking['fid'].astype(str)
+        # 8.2 Linha Comparativa do Consumo Ajustada (Eixo numérico para forçar renderização)
+        st.subheader("⏳ Evolução Temporal e Linha Comparativa do Consumo")
+        
+        anos_disponiveis = ["2022", "2023", "2024", "2025"]
         
         if talhao_selecionado != "Visão Geral":
-            # Encontra a POSIÇÃO (0, 1, 2...) do talhão no ranking ordenado
-            idx_list = df_ranking.index[df_ranking['fid_str'] == str(talhao_selecionado)].tolist()
-            
-            if idx_list:
-                posicao_real = idx_list[0]
-                
-                # Define as cores: Amarelo para o selecionado, Cinza para o resto
-                df_ranking['Destaque'] = df_ranking['fid_str'].apply(
-                    lambda x: 'Selecionado' if x == str(talhao_selecionado) else 'Outros'
-                )
-                
-                # JANELA DE DESLOCAMENTO: Pega 5 talhões antes e 5 depois no ranking
-                start = max(0, posicao_real - 5)
-                end = min(len(df_ranking), posicao_real + 6)
-                df_zoom = df_ranking.iloc[start:end].copy()
-                
-                st.subheader(f"📈 Posição no Ranking: {posicao_real + 1}º lugar")
-            else:
-                df_zoom = df_ranking.head(15)
-                st.subheader("📈 Ranking Geral de Consumo")
+            df_historico = data[data['fid'] == talhao_selecionado].copy()
         else:
-            df_ranking['Destaque'] = 'Geral'
-            df_zoom = df_ranking.head(15)
-            st.subheader("📈 Top 15 Maiores Consumos")
-
-        # 8.3 Criação do Gráfico de Barras
-        fig_barra = px.bar(
-            df_zoom, 
-            x='fid_str', 
-            y=col_exp,
-            color='Destaque',
-            color_discrete_map={'Selecionado': '#FAFF00', 'Outros': '#A0A0A0', 'Geral': '#0083B8'},
-            text_auto='.1f',
-            # Isso impede que o Plotly reordene os IDs (mantém o ranking do maior para o menor)
-            category_orders={"fid_str": df_zoom['fid_str'].tolist()} 
+            df_historico = data.copy()
+            
+        lista_linhas = []
+        mapa_cores_talhoes = {}
+        
+        for index, row in df_historico.iterrows():
+            fid_str = f"Talhão {row['fid']}"
+            
+            # ATUALIZAÇÃO: Descobre a cor dinamicamente com base no ano selecionado no Painel Lateral!
+            consumo_referencia = row[col_exp]
+            if consumo_referencia >= 99: cor = "#FF0000"    # Vermelho
+            elif consumo_referencia >= 70: cor = "#FF8C00"  # Laranja
+            elif consumo_referencia >= 30: cor = "#FFFF00"  # Amarelo
+            elif consumo_referencia >= 1: cor = "#ADFF2F"   # Verde Claro
+            else: cor = "#228B22"                     # Verde Escuro (Corte Zero / 100% Preservado)
+            
+            mapa_cores_talhoes[fid_str] = cor
+            
+            for a in anos_disponiveis:
+                lista_linhas.append({
+                    'ID Talhão': fid_str,
+                    'Ano': int(a),  # Convertido para int para forçar a linha contínua no gráfico
+                    '% Consumo': row[f"exploracao_{a}"]
+                })
+                
+        df_linha_plot = pd.DataFrame(lista_linhas)
+        
+        # Gerando o gráfico de linhas
+        fig_linha = px.line(
+            df_linha_plot,
+            x='Ano',
+            y='% Consumo',
+            color='ID Talhão',
+            markers=True,
+            color_discrete_map=mapa_cores_talhoes
         )
-
-        fig_barra.update_layout(
-            showlegend=False, 
-            height=400,
-            xaxis_title="ID do Talhão (Ranking Decrescente)",
-            yaxis_title="% Consumo",
+        
+        # Configurações de destaque e anotação
+        if talhao_selecionado != "Visão Geral":
+            # Puxa dinamicamente a cor que foi definida para o talhão atual
+            cor_atual = mapa_cores_talhoes[f"Talhão {talhao_selecionado}"]
+            fig_linha.update_traces(line_width=4, marker=dict(size=10, color="black"), line_color=cor_atual)
+            
+            # DESTAQUE NA COORDENADA DO ANO ESCOLHIDO
+            valores_ano = df_linha_plot[df_linha_plot['Ano'] == int(ano)]['% Consumo'].values
+            if len(valores_ano) > 0:
+                val_ano_y = valores_ano[0]
+                fig_linha.add_annotation(
+                    x=int(ano),
+                    y=val_ano_y,
+                    text=f"Foco: {ano}",
+                    showarrow=True,
+                    arrowhead=2,
+                    ay=-40,
+                    ax=0,
+                    bgcolor=cor_atual,  # A caixinha de texto acompanha a cor do nível de criticidade
+                    font=dict(color="black" if cor_atual != "#228B22" else "white", size=11, weight="bold")
+                )
+        else:
+            fig_linha.update_traces(line_width=2.5)
+        
+        # Ajuste estrito do layout
+        fig_linha.update_layout(
+            height=450,
+            xaxis_title="Ano de Monitoramento",
+            yaxis_title="% Consumo Acumulado",
             plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
+            paper_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(
+                tickmode='array',
+                tickvals=[2022, 2023, 2024, 2025],
+                ticktext=["2022", "2023", "2024", "2025"]
+            ),
+            yaxis=dict(range=[-5, 105])
         )
-
-        # 8.4 Seta Indicadora (Apenas se houver seleção)
-        if talhao_selecionado != "Visão Geral":
-            val_y = df_zoom[df_zoom['fid_str'] == str(talhao_selecionado)][col_exp].values[0]
-            fig_barra.add_annotation(
-                x=str(talhao_selecionado), 
-                y=val_y,
-                text="📍 SELECIONADO", 
-                showarrow=True, 
-                arrowhead=2, 
-                ay=-50,
-                bgcolor="#FAFF00", 
-                font=dict(color="black", size=12, weight="bold")
-            )
-
-        st.plotly_chart(fig_barra, use_container_width=True)
-
-        # 8.5 Gráfico de Linha (Histórico)
-        if talhao_selecionado != "Visão Geral":
-            st.markdown("---")
-            st.subheader(f"📅 Histórico de Consumo - Talhão {talhao_selecionado}")
-            t_row = data[data['fid'] == talhao_selecionado].iloc[0]
-            df_hist = pd.DataFrame([
-                {"Ano": a, "Consumo": t_row[f"exploracao_{a}"]} for a in ["2022", "2023", "2024", "2025"]
-            ])
-            fig_line = px.line(df_hist, x="Ano", y="Consumo", markers=True)
-            fig_line.update_traces(line_color='#FAFF00', line_width=4, marker=dict(size=10, color="black"))
-            st.plotly_chart(fig_line, use_container_width=True)
+        st.plotly_chart(fig_linha, use_container_width=True)
 
 except Exception as e:
     st.error(f"⚠️ Erro crítico: {e}")
