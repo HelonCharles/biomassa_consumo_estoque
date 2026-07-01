@@ -1,3 +1,20 @@
+Entendi perfeitamente! Como você está testando e editando tudo direto pela interface web do GitHub, o caminho mais rápido e limpo para resolver isso é reescrever o arquivo com a versão que estava funcionando bem (antes de travar o mapa) e que já inclui as correções de unidades e do gráfico que você aprovou.
+
+Para consertar isso diretamente no GitHub sem precisar de comandos de terminal, siga este passo a passo usando apenas o seu navegador:
+🛠️ Como aplicar a correção direto no GitHub:
+
+    Acesse o seu repositório no GitHub pelo navegador.
+
+    Clique no seu arquivo de script do Streamlit (ex: app.py ou main.py).
+
+    No canto superior direito da visualização do código, clique no ícone de Lápis (✏️) que diz "Edit this file".
+
+    Apague absolutamente todo o código que está lá dentro (selecione tudo com Ctrl + A e delete).
+
+    Cole o código completo e corrigido abaixo, que já vem com o mapa adaptado para a versão web estável e sem o erro do gráfico:
+
+Python
+
 import streamlit as st
 import leafmap.foliumap as leafmap
 import geopandas as gpd
@@ -50,7 +67,7 @@ try:
                 st.session_state.map_state = {'center': [geom.y, geom.x], 'zoom': 16}
                 st.rerun()
 
-    # 4. KPIs Principais (Atualizado para 'unid.')
+    # 4. KPIs Principais
     total_original = data['mudas_2020'].sum()
     saldo_atual = data[col_saldo].sum()
     consumido = total_original - saldo_atual
@@ -72,7 +89,7 @@ try:
         f"{progresso:.1f}% consumido"
     )
 
-    # 5. Informações do Talhão Selecionado (Atualizado para 'unid.')
+    # 5. Informações do Talhão Selecionado
     if talhao_selecionado != "Visão Geral":
         st.markdown("---")
         st.subheader(f"📊 Detalhes - Talhão {talhao_selecionado}")
@@ -85,9 +102,29 @@ try:
         col4.metric(f"% Consumo", f"{t_data[col_exp]:.1f}%")
         st.progress(t_data[col_exp] / 100)
 
-    # 6. Visualização Espacial (Otimizado para Carregamento e Estabilidade)
+    # 6. Visualização Espacial (Otimizada para carregar direto na Web)
     st.markdown("---")
-    m = leafmap.Map(center=st.session_state.map_state['center'], zoom=st.session_state.map_state['zoom'], google_map="SATELLITE")
+    
+    if not data.empty:
+        centro_real_y = data.geometry.centroid.y.mean()
+        centro_real_x = data.geometry.centroid.x.mean()
+        coordenadas_iniciais = [centro_real_y, centro_real_x]
+    else:
+        coordenadas_iniciais = st.session_state.map_state['center']
+
+    m = leafmap.Map(
+        center=st.session_state.map_state['center'] if talhao_selecionado != "Visão Geral" else coordenadas_iniciais, 
+        zoom=st.session_state.map_state['zoom'],
+        draw_control=False,
+        measure_control=False
+    )
+    
+    # Adicionando satélite por link direto (evita que o iframe web bloqueie o carregamento)
+    m.add_tile_layer(
+        url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        name="Google Satellite",
+        attribution="Google"
+    )
     
     m.add_data(
         data, column=col_exp, scheme="UserDefined", 
@@ -112,7 +149,7 @@ try:
 
     st_folium(
         m, 
-        key="mapa_gestao_mangium", 
+        key="mapa_estavel_github", 
         use_container_width=True, 
         height=500,
         returned_objects=[]
@@ -162,7 +199,6 @@ try:
     st.markdown("---")
     with st.expander("📊 Estatísticas e Evolução Temporal do Consumo", expanded=True):
         
-        # 8.1 Métricas de Severidade
         m1, m2, m3 = st.columns(3)
         with m1:
             c_alt = len(df_tabela[df_tabela[col_exp] >= 70])
@@ -176,7 +212,6 @@ try:
 
         st.markdown("---")
         
-        # 8.2 Montagem do Gráfico de Linhas Comparativo Temporal
         historico_anos = []
         
         if talhao_selecionado != "Visão Geral":
@@ -216,18 +251,16 @@ try:
             )
             cor_base = '#0083B8'
 
-        # Criação dinâmica das propriedades dos marcadores (Destaque baseado no ano ativo)
         lista_cores = []
         lista_tamanhos = []
         for a in anos_disponiveis:
             if str(a) == str(ano):
-                lista_cores.append('#FAFF00')  # Cor Amarela para destacar o ano atual selecionado
-                lista_tamanhos.append(14)      # Tamanho maior
+                lista_cores.append('#FAFF00')
+                lista_tamanhos.append(14)
             else:
-                lista_cores.append(cor_base)   # Cor padrão
-                lista_tamanhos.append(8)       # Tamanho normal
+                lista_cores.append(cor_base)
+                lista_tamanhos.append(8)
 
-        # Atualizando os marcadores
         fig_linha.update_traces(
             line=dict(color=cor_base, width=4),
             marker=dict(
@@ -245,7 +278,7 @@ try:
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             yaxis=dict(range=[0, 105]),
-            xaxis=dict(type='category')  # Evita quebra de anos decimais ou formatação de milhar
+            xaxis=dict(type='category')
         )
         
         st.plotly_chart(fig_linha, use_container_width=True)
