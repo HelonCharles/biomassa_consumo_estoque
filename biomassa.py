@@ -179,7 +179,7 @@ try:
             
             for a in anos_disponiveis:
                 historico_anos.append({
-                    "Ano": str(a),  # Força o ano como string para evitar decimais/milhar no Plotly
+                    "Ano": str(a),
                     "% Consumo": t_row[f"exploracao_{a}"],
                     "Saldo (unid.)": t_row[f"saldo_{a}"]
                 })
@@ -190,7 +190,8 @@ try:
                 text=[f"{val:.1f}%" for val in df_linha["% Consumo"]],
                 title=f"Histórico de Consumo Acumulado - Talhão {talhao_selecionado}"
             )
-            fig_linha.update_traces(line=dict(color='#FF0000', width=4), marker=dict(size=10))
+            # Cor base da linha para talhão específico
+            cor_base = '#FF0000'
             
         else:
             st.subheader("📈 Comparação de Consumo ao Longo dos Anos - Todos os Talhões")
@@ -198,7 +199,7 @@ try:
             for a in anos_disponiveis:
                 media_consumo = data[f"exploracao_{a}"].mean()
                 historico_anos.append({
-                    "Ano": str(a),  # Força o ano como string para evitar decimais/milhar no Plotly
+                    "Ano": str(a),
                     "Média % Consumo": media_consumo
                 })
             df_linha = pd.DataFrame(historico_anos)
@@ -208,9 +209,23 @@ try:
                 text=[f"{val:.1f}%" for val in df_linha["Média % Consumo"]],
                 title="Média Geral de Consumo Acumulado do Projeto"
             )
-            fig_linha.update_traces(line=dict(color='#0083B8', width=4), marker=dict(size=10))
+            # Cor base da linha para Visão Geral
+            cor_base = '#0083B8'
 
-        # Estilização do Gráfico do Plotly
+        # Descobrir o índice numérico do ano selecionado para aplicar o destaque do marcador
+        indice_ano_selecionado = anos_disponiveis.index(str(ano))
+
+        # Estilização do Gráfico e Destaque Dinâmico do Marcador
+        fig_linha.update_traces(
+            line=dict(color=cor_base, width=4),
+            selectedpoints=[indice_ano_selecionado], # Define qual ponto receberá a estilização de destaque
+            # Como o marcador se comporta quando está selecionado (Ano Atual)
+            selected=dict(marker=dict(color='#FAFF00', size=14, line=dict(color='black', width=2))),
+            # Como os marcadores se comportam quando não estão selecionados (Outros Anos)
+            unselected=dict(marker=dict(color=cor_base, size=8, opacity=0.9)),
+            textposition="top center"
+        )
+
         fig_linha.update_layout(
             height=400,
             xaxis_title="Ano de Referência",
@@ -218,9 +233,8 @@ try:
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             yaxis=dict(range=[0, 105]),
-            xaxis=dict(type='category')  # Garante que o eixo X trate os anos puramente como categorias textuais
+            xaxis=dict(type='category')
         )
-        fig_linha.update_traces(textposition="top center")
         
         st.plotly_chart(fig_linha, use_container_width=True)
 
