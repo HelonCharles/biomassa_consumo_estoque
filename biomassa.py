@@ -7,7 +7,7 @@ import folium
 import plotly.express as px
 
 # 1. Configuração da Interface
-st.set_page_config(layout="wide", page_title="Gestor de Estoque de Acácia mangium", page_icon="🛰️")
+st.set_page_config(layout="wide", page_title="Gestor de Estoque de Acácia Mangium", page_icon="🛰️")
 
 st.title("🛰️ Gestão de Consumo e Estoque")
 st.markdown("---")
